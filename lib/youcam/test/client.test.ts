@@ -64,8 +64,18 @@ async function main() {
   {
     const { fetchFn, calls } = scriptedFetch((call) => {
       if (call.method === "POST") {
+        // Real V2 shape, verified by live probe 2026-10-22.
         return jsonResponse({
-          data: { file_id: "file-123", upload_url: "https://up.example/put" },
+          data: {
+            files: [
+              {
+                file_id: "file-123",
+                requests: [
+                  { method: "PUT", url: "https://up.example/put", headers: {} },
+                ],
+              },
+            ],
+          },
         });
       }
       return new Response(null, { status: 200 });
@@ -78,6 +88,7 @@ async function main() {
     });
     const fileId = await uploadFile(
       client,
+      "skin-tone",
       new Uint8Array([1, 2, 3]),
       "image/jpeg",
     );
@@ -105,7 +116,7 @@ async function main() {
     });
     let threw = false;
     try {
-      await createTask(client, "skin-tone", { file_id: "f" });
+      await createTask(client, "skin-tone", { src_file_id: "f" });
     } catch {
       threw = true;
     }
@@ -120,14 +131,22 @@ async function main() {
   {
     let polls = 0;
     const { fetchFn } = scriptedFetch((call) => {
-      if (call.method === "POST") return jsonResponse({ task_id: "t-1" });
+      if (call.method === "POST")
+        return jsonResponse({ data: { task_id: "t-1" } });
       polls += 1;
-      if (polls === 1) return jsonResponse({ status: "running" });
+      if (polls === 1)
+        return jsonResponse({ data: { task_status: "running" } });
+      // Real V2 shape, verified against the docs 2026-10-22.
       return jsonResponse({
-        status: "success",
-        result: {
-          skin_color: "#C68863",
-          facial_colors: { eye_color: "#3B2F2F", lip_color: "#B4656F" },
+        data: {
+          task_status: "success",
+          results: {
+            color: {
+              skin_color: "#C68863",
+              eye_color: "#3B2F2F",
+              lip_color: "#B4656F",
+            },
+          },
         },
       });
     });
@@ -150,8 +169,11 @@ async function main() {
   // 4. Task-level failure surfaces as YouCamTaskError.
   {
     const { fetchFn } = scriptedFetch((call) => {
-      if (call.method === "POST") return jsonResponse({ task_id: "t-2" });
-      return jsonResponse({ status: "error", message: "no face found" });
+      if (call.method === "POST")
+        return jsonResponse({ data: { task_id: "t-2" } });
+      return jsonResponse({
+        data: { task_status: "error", error_message: "no face found" },
+      });
     });
     const client = createYouCamClient({
       apiKey: "test-key",
@@ -174,22 +196,34 @@ async function main() {
 
   // 5. Parsers for skin analysis and makeup VTO.
   {
+    // Real score_info.json shape, captured from a live run 2026-10-22.
     const analysis = parseSkinAnalysisResult({
-      actions: [
-        { action: "oiliness", raw_score: 41, ui_score: 55 },
-        { action: "redness", raw_score: 63 },
-      ],
-      masks: { oiliness: "https://cdn.example/mask.png" },
+      texture: {
+        raw_score: 75.09869933128357,
+        ui_score: 78,
+        output_mask_name: "texture_output.png",
+      },
+      wrinkle: {
+        raw_score: 92.88226366043091,
+        ui_score: 85,
+        output_mask_name: "wrinkle_output.png",
+      },
+      all: { score: 78.5 },
+      skin_age: 36,
+      resize_image: { image_name: "resize_image.jpg" },
     });
     check(
       analysis.scores.length === 2 &&
-        analysis.scores[0].rawScore === 41 &&
-        analysis.scores[1].uiScore === null,
-      "skin analysis parses concern raw scores",
+        analysis.scores[1].action === "wrinkle" &&
+        analysis.scores[1].rawScore > 92.88 &&
+        analysis.scores[0].uiScore === 78,
+      "skin analysis parses the keyed score_info shape",
     );
     check(
-      analysis.maskUrls.oiliness === "https://cdn.example/mask.png",
-      "skin analysis parses mask URLs",
+      analysis.maskNames.wrinkle === "wrinkle_output.png" &&
+        analysis.overallScore === 78.5 &&
+        analysis.skinAge === 36,
+      "skin analysis parses mask names, overall score and skin age",
     );
     const vto = parseMakeupVtoResult({ image_url: "https://cdn.example/r.png" });
     check(vto.imageUrl.endsWith("r.png"), "makeup VTO parses the render URL");

@@ -47,16 +47,33 @@ export const JUDGE_RESERVE_UNITS = 300;
 export const GRANTED_UNITS = 1000;
 
 /**
- * API paths. UNVERIFIED: the exact versioned paths and the India
- * region host are day-1 probe items (the plan records two candidate
- * hosts: yce-api-01.makeupar.com and a perfectcorp.com address a
- * Round 1 team used).
+ * API feature names, per the official YouCam API documentation.
+ * VERIFIED 2026-10-22 by live probe (docs: yce.perfectcorp.com/document):
+ * V2 endpoints are feature-scoped, and the skin tone feature is named
+ * "skin-tone-analysis", not "skin-tone".
+ */
+export const FEATURE_NAMES: Record<TaskType, string> = {
+  "skin-tone": "skin-tone-analysis",
+  "skin-analysis": "skin-analysis",
+  "makeup-vto": "makeup-vto",
+  "clothes-vto": "cloth",
+};
+
+/**
+ * API paths. VERIFIED 2026-10-22 by live probe against
+ * yce-api-01.makeupar.com with the account's real key: file ticket
+ * (V2, feature-scoped), presigned PUT, task create with src_file_id,
+ * and status polling all returned the documented shapes. Task bodies
+ * for skin-analysis and makeup-vto beyond src_file_id remain
+ * UNVERIFIED until their first live calls.
  */
 export const API_PATHS = {
-  file: "/s2s/v1.0/file",
-  task: (taskType: TaskType) => `/s2s/v1.0/task/${taskType}`,
+  file: (taskType: TaskType) =>
+    `/s2s/v2.0/file/${FEATURE_NAMES[taskType]}`,
+  task: (taskType: TaskType) =>
+    `/s2s/v2.0/task/${FEATURE_NAMES[taskType]}`,
   taskStatus: (taskType: TaskType, taskId: string) =>
-    `/s2s/v1.0/task/${taskType}/${taskId}`,
+    `/s2s/v2.0/task/${FEATURE_NAMES[taskType]}/${taskId}`,
 } as const;
 
 /** Poll interval for task status checks: 2-3s per the plan. */

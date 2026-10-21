@@ -27,22 +27,34 @@ export interface SkinToneResult {
 }
 
 export interface SkinConcernScore {
-  /** Concern identifier, e.g. "oiliness", "redness", "moisture". */
+  /** Concern identifier, e.g. "wrinkle", "pore", "texture", "acne". */
   action: string;
-  /** Raw concern score. Higher means healthier-looking for that concern. */
+  /**
+   * Raw concern score from score_info.json. NOT a confidence score and
+   * carries no verdict authority (MERGED_PLAN_V2 standing rule).
+   */
   rawScore: number;
   /** Adjusted display score when the response carries one, else null. */
   uiScore: number | null;
+  /** Mask PNG filename inside the result archive, else null. */
+  maskName: string | null;
 }
 
 export interface SkinAnalysisResult {
   scores: SkinConcernScore[];
+  /** Mask PNG filenames by concern, as stored inside the result archive. */
+  maskNames: Record<string, string>;
+  /** The archive's own "all.score" aggregate, else null. Display only. */
+  overallScore: number | null;
+  /** The archive's skin_age estimate, else null. Display only. */
+  skinAge: number | null;
   /**
-   * Segmentation mask image URLs by concern. These URLs expire fast;
-   * mirror them locally at capture time (lib/fixtures) instead of
-   * storing the URL.
+   * VERIFIED 2026-10-22: a Skin Analysis task result is an archive URL
+   * (results.url, a ZIP holding score_info.json + mask PNGs), not inline
+   * scores. The URL expires in about 2 hours; mirror the archive locally
+   * at capture time instead of storing the URL.
    */
-  maskUrls: Record<string, string>;
+  archiveUrl: string | null;
 }
 
 export interface MakeupVtoResult {
