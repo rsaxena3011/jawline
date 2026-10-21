@@ -81,8 +81,11 @@ async function main() {
   }
   check(doubleCloseThrew, "settling an already-settled entry throws");
 
-  // Reserve ring-fence: 1,000 granted, 300 reserve, 21 spent.
-  check(ledger.nonReserveRemaining() === 1000 - 300 - 21, "non-reserve remaining ring-fences the judge reserve");
+  // Reserve ring-fence: 1,000 granted, 300 reserve, 21 spent. The grant is
+  // passed explicitly so this scenario stays hermetic when the live
+  // GRANTED_UNITS figure changes (it became 1,040 on 2026-10-22 when a
+  // 40-unit free-tries grant was found in the console ledger).
+  check(ledger.nonReserveRemaining(1000) === 1000 - 300 - 21, "non-reserve remaining ring-fences the judge reserve");
 
   // Public mode can never reserve.
   let publicThrew = false;
