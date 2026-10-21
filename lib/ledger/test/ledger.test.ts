@@ -28,7 +28,10 @@ function check(ok: boolean, label: string) {
 }
 
 class FixedBalanceProvider implements BalanceProvider {
-  constructor(private readonly balance: number | null) {}
+  private readonly balance: number | null;
+  constructor(balance: number | null) {
+    this.balance = balance;
+  }
   async getBalanceUnits(): Promise<number | null> {
     return this.balance;
   }
