@@ -1,15 +1,15 @@
 /**
  * Central configuration for the YouCam integration.
  *
- * UNVERIFIED FIGURES: every cost, path, and host in this file is a
- * working figure taken from the merged plan (MERGED_PLAN_V2, 2026-10-21).
- * The returns disagreed with each other on several of them. Each one
- * must be confirmed against the real account in the YouCam console
- * during the day-1 probe before any budget or behaviour claim is made
- * to anyone. Do not quietly treat a value here as settled.
+ * VERIFIED 2026-10-22 against the live account (console ledger reads +
+ * the study in ../study/STUDY_LOG.md): the three task costs below are
+ * exact, failed tasks net zero (charge, then full refund), and the API
+ * paths/host match the official V2 docs. The one figure still marked
+ * UNVERIFIED is the 5-8 concern Skin Analysis price, which no live run
+ * has exercised yet; do not quote it as settled.
  */
 
-/** Per-call unit costs, by task type. UNVERIFIED, see header. */
+/** Per-call unit costs, by task type. VERIFIED 2026-10-22, see header. */
 export const TASK_COSTS = {
   /** AI Skin Tone / Facial Color Tones: the 20-unit whale. */
   "skin-tone": 20,
@@ -43,8 +43,11 @@ export function estimateTaskUnits(
 /** Units held back, untouched, for the judging window. */
 export const JUDGE_RESERVE_UNITS = 300;
 
-/** Total units granted with the hackathon redeem code. */
-export const GRANTED_UNITS = 1000;
+/**
+ * Total units granted: 1,000 from the hackathon redeem code plus a
+ * 40-unit "free tries" grant found in the ledger 2026-10-22.
+ */
+export const GRANTED_UNITS = 1040;
 
 /**
  * API feature names, per the official YouCam API documentation.
