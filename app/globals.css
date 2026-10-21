@@ -1,0 +1,94 @@
+:root {
+  --ink: #1c1917;
+  --paper: #faf7f2;
+  --accent: #9a3412;
+  --muted: #57534e;
+  --line: #e7e0d5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.55;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.site-nav a {
+  margin-left: 1.25rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--accent);
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin: 0 0 0.75rem;
+}
+
+.one-liner {
+  font-size: 1.3rem;
+  font-style: italic;
+  margin: 0 0 1rem;
+}
+
+.hero-sub {
+  color: var(--muted);
+  max-width: 38rem;
+}
+
+.how {
+  margin-top: 3rem;
+}
+
+.how ol {
+  padding-left: 1.25rem;
+}
+
+.how li {
+  margin-bottom: 0.9rem;
+}
+
+.status {
+  margin-top: 3rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+  color: var(--muted);
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 1.25rem 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}

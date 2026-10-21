@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+build/
+.env*.local
+.env
+!.env.example
+.DS_Store
+*.log
+*.tsbuildinfo
+# Mirrored fixture binaries are captured API results and may show real
+# faces; they stay local until consent is on file. The manifest is safe
+# to commit. See fixtures/README.md.
+public/fixtures/*
+!public/fixtures/manifest.json
