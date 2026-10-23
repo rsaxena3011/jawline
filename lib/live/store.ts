@@ -163,10 +163,10 @@ export const SKIN_TONE_ESTIMATE_UNITS = TASK_COSTS["skin-tone"];
  */
 export function getLiveStore(): LiveStore {
   const global = globalThis as unknown as {
-    __jawlineLiveStore?: LiveStore;
+    __shadevetoLiveStore?: LiveStore;
   };
-  if (!global.__jawlineLiveStore) {
-    global.__jawlineLiveStore = new LiveStore();
+  if (!global.__shadevetoLiveStore) {
+    global.__shadevetoLiveStore = new LiveStore();
   }
-  return global.__jawlineLiveStore;
+  return global.__shadevetoLiveStore;
 }

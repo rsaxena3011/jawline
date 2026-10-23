@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 export function GET() {
   return NextResponse.json({
     ok: true,
-    service: "jawline",
+    service: "shadeveto",
     phase: "live-mode",
     judgePasscodeConfigured: Boolean(process.env.JUDGE_PASSCODE),
     time: new Date().toISOString(),

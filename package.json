@@ -4,7 +4,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
-  "description": "Jawline: check foundation against your face and the bottles you already own before you buy. It tells you when it can't tell.",
+  "description": "ShadeVeto: check foundation against your face and the bottles you already own before you buy. It tells you when it can't tell.",
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
@@ -12,7 +12,7 @@
     "typescript": "^6.0.3"
   },
   "license": "MIT",
-  "name": "jawline",
+  "name": "shadeveto",
   "private": true,
   "scripts": {
     "build": "next build",

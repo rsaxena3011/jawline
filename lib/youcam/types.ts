@@ -1,5 +1,5 @@
 /**
- * Typed shapes for the YouCam tasks Jawline uses, following the
+ * Typed shapes for the YouCam tasks ShadeVeto uses, following the
  * documented schemas recorded in MERGED_PLAN_V2 (2026-10-21).
  *
  * Facts the plan settled, encoded here on purpose:

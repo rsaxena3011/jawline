@@ -2,14 +2,14 @@ export default function HomePage() {
   return (
     <div className="landing">
       <section className="hero">
-        <h1>Jawline</h1>
+        <h1>ShadeVeto</h1>
         <p className="one-liner">
           Check foundation against your face and the bottles you already
           own before you buy. It tells you when it can&apos;t tell.
         </p>
         <p className="hero-sub">
           One foundation, checked three ways: its colour against your
-          skin, its blend at the jawline in a try-on render, and your
+          skin, a try-on render shown as a labelled preview, and your
           shelf, so the answer can be BUY, SHADE-RISK, or NO, with the
           reason shown. Built on the YouCam API.
         </p>
@@ -29,9 +29,10 @@ export default function HomePage() {
             distance.
           </li>
           <li>
-            <strong>Jawline test.</strong> The top shades are rendered
-            on your photo, and the blend where jaw meets bare neck is
-            measured. The shade whose jawline disappears ranks first.
+            <strong>Preview.</strong> The top shades are rendered on
+            your photo so you can look at the blend. The render is a
+            labelled preview only: it never feeds the verdict. Colour
+            distance and the cluster rule decide.
           </li>
           <li>
             <strong>Receipt.</strong> BUY, SHADE-RISK, or NO, with

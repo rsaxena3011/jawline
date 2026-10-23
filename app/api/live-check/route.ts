@@ -13,7 +13,7 @@ import type { ShadeEntry } from "../../../lib/catalog/types.ts";
 // ledger state. It must never run on the edge runtime.
 export const runtime = "nodejs";
 
-const SESSION_COOKIE = "jawline-live-session";
+const SESSION_COOKIE = "shadeveto-live-session";
 
 /**
  * Live check endpoint. Public visitors get fixture mode and

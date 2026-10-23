@@ -1,9 +1,9 @@
-# Jawline
+# ShadeVeto
 
 Check foundation against your face and the bottles you already own
 before you buy. It tells you when it can't tell.
 
-Jawline is a purchase-decision engine for one foundation, built on
+ShadeVeto is a purchase-decision engine for one foundation, built on
 the YouCam API for the YouCam API Skin AI & eCommerce VTO Hackathon
 (Devpost, deadline Nov 2, 2026). It is not another shade finder: the
 product is the receipt, a BUY, SHADE-RISK, or NO verdict whose every
@@ -19,11 +19,12 @@ own the match.
 2. **Colour.** One Skin Tone call returns a skin colour. Candidates
    come from a small, dated, licensed shade catalog and are ranked by
    CIEDE2000 colour distance.
-3. **Jawline test.** The top candidates are rendered with Makeup VTO
-   (smoothing explicitly off, settings fixed across shades), and the
-   blend where jaw meets bare neck is measured. The shade whose
-   jawline disappears ranks first. The render may disagree with the
-   colour ranking; disagreement is itself a verdict input.
+3. **Preview.** The top candidates are rendered with Makeup VTO
+   (smoothing explicitly off, settings fixed across shades) so the
+   shopper can look at the blend. The render is a labelled preview
+   only: it never feeds the verdict. (An earlier plan measured the
+   blend at the jawline and ranked by it; that metric failed its
+   validation study in October 2026 and was cut.)
 4. **Planner.** A 4-concern Skin Analysis is spent only when it could
    change the verdict (a borderline colour read, a formula-risk
    flag). It logs what it spent, skipped, and why.
@@ -34,13 +35,17 @@ own the match.
 
 ## Status
 
-Phase 1 scaffold (Oct 21, 2026). Landed: app shell, landing page,
-`/api/health`, the server-side YouCam client skeleton, the unit
-ledger with the judge/public split, the shade catalog schema and
-loader, and the fixture mirroring plumbing, all with tests. **No live
-YouCam API calls are made yet.** The day-1 probe (below) is the first
-live use, and several figures in `lib/config.ts` are marked
-UNVERIFIED until it runs.
+Build slices 1 to 6 landed (Oct 22 to 23, 2026): the decision engine
+(CIEDE2000 ranking, owned-bottle check first, cluster rule), the
+receipt UI, live mode behind the judge passcode with server-side
+spend caps (one verified live Skin Tone call: balance 887 to 867,
+exactly the 20-unit cost), the brand coverage screen, and the
+licensed 617-shade Pudding catalog (MIT) as the live ranking target.
+207 checks green. Remaining before submission: final polish, the
+demo video, and the Devpost filing (deadline Nov 2, 2026). The
+product was renamed from its working name Jawline to ShadeVeto on
+Oct 23, 2026; the day-1 probe checklist below is kept as the
+historical record of that probe.
 
 ## Setup
 

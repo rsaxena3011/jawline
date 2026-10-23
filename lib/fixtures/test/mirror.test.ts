@@ -32,7 +32,7 @@ function pngFetch(bytes: number[]): typeof fetch {
 }
 
 async function main() {
-  const root = await mkdtemp(join(tmpdir(), "jawline-fixtures-"));
+  const root = await mkdtemp(join(tmpdir(), "shadeveto-fixtures-"));
 
   const empty = await readManifest(root);
   check(empty.entries.length === 0, "missing manifest reads as empty");

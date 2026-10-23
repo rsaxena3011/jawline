@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Jawline: check the foundation before you buy it",
+  title: "ShadeVeto: check the foundation before you buy it",
   description:
     "Check foundation against your face and the bottles you already own before you buy. It tells you when it can't tell.",
 };
@@ -18,7 +18,7 @@ export default function RootLayout({
       <body>
         <header className="site-header">
           <Link href="/" className="brand">
-            Jawline
+            ShadeVeto
           </Link>
           <nav className="site-nav">
             <Link href="/#how">How it works</Link>
@@ -30,7 +30,7 @@ export default function RootLayout({
         <main>{children}</main>
         <footer className="site-footer">
           <p>
-            Jawline. A purchase check, not a shade finder: it tells you
+            ShadeVeto. A purchase check, not a shade finder: it tells you
             when it can&apos;t tell.
           </p>
         </footer>
