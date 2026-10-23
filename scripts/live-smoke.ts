@@ -25,7 +25,7 @@ import {
   runLiveCheck,
 } from "../lib/live/runner.ts";
 import { getUnitBalance } from "../lib/youcam/client.ts";
-import { studyFixtureCatalog } from "../lib/decision/fixtures.ts";
+import { licensedCatalog } from "../lib/catalog/licensed.ts";
 import { UnitInfoBalanceProvider } from "../lib/live/balance.ts";
 import { LiveStore } from "../lib/live/store.ts";
 import { liveSpendCaps } from "../lib/live/limits.ts";
@@ -64,7 +64,7 @@ async function main() {
     ...deps,
     store: new LiveStore(),
     balance: new UnitInfoBalanceProvider(deps.client),
-    catalog: studyFixtureCatalog(),
+    catalog: licensedCatalog(),
     caps: liveSpendCaps(),
   };
 

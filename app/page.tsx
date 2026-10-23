@@ -52,7 +52,11 @@ export default function HomePage() {
           replay only. A brand coverage screen now counts the same
           engine&apos;s verdicts across all six study tones, so a
           catalog&apos;s gaps show as plain counts, one bucket per
-          verdict, never merged.
+          verdict, never merged. The live check and the brand screen
+          now rank a real licensed catalog: 617 foundation shades
+          from The Pudding foundation shades dataset, swatches
+          recorded in 2018, used under the MIT License. The public
+          replay keeps its labelled fixture shades.
         </p>
       </section>
     </div>

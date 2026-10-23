@@ -46,7 +46,7 @@ import {
   runDecision,
   type Receipt,
 } from "../decision/decision.ts";
-import { studyFixtureCatalog } from "../decision/fixtures.ts";
+import { licensedCatalog } from "../catalog/licensed.ts";
 import { resolveAccessMode } from "../ledger/access.ts";
 import type { BalanceProvider } from "../ledger/ledger.ts";
 import {
@@ -413,7 +413,7 @@ export async function createConnectorLiveDeps(): Promise<LiveDeps> {
     client,
     balance: new UnitInfoBalanceProvider(client),
     store: getLiveStore(),
-    catalog: studyFixtureCatalog(),
+    catalog: licensedCatalog(),
     caps: liveSpendCaps(),
   };
 }

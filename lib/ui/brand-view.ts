@@ -22,10 +22,13 @@
  * un-merges that count again.
  *
  * Honesty, stated on the screen itself: the six tones are the
- * synthetic study faces, the catalog is the fixture catalog
- * standing in for the licensed one, the set is small by design,
- * and these are study results, not population statistics. Every
- * percentage is shown with its count of 6 beside it.
+ * synthetic study faces, the set is small by design, and these
+ * are study results, not population statistics. Every percentage
+ * is shown with its count of 6 beside it. The catalog line names
+ * whichever catalog was actually ranked, read off that catalog's
+ * own records: the fixture catalog for the replay, or the
+ * licensed dataset (The Pudding foundation shades, swatches from
+ * 2018, MIT) when the screen runs on real shades.
  */
 
 import type { Catalog } from "../catalog/types.ts";
@@ -145,10 +148,21 @@ export function computeBrandView(
     `NO ${countOf("NO")} of ${total}, CAN'T TELL ${countOf("CAN'T TELL")} of ${total}. ` +
     "A shade risk, an empty range and an unreadable gap are three different problems, with three different fixes.";
 
+  // The catalog line describes the catalog that was actually
+  // ranked, from its own records: fixture shades identify
+  // themselves, and a real catalog is named with its source, its
+  // swatch year and its license, never just asserted licensed.
+  const catalogIsFixture = catalog.shades.every((s) => s.fixture);
+  const firstShade = catalog.shades[0];
+  const catalogLine =
+    catalogIsFixture || firstShade === undefined
+      ? "Catalog: the shades ranked here are the fixture catalog, placeholder shades invented for the study and labelled fixture in their own records, standing in for the licensed catalog until it lands."
+      : `Catalog: the shades ranked here are a real, licensed catalog of ${catalog.shades.length} foundation shades: ${firstShade.source}. The swatch colours were recorded in ${firstShade.sourceDate.slice(0, 4)} and are used under the ${firstShade.license}, so they are dated reference data, not a reading of today's shelf. Display labels carry shade hex codes only; brand and product names from the dataset are never shown on this screen.`;
+
   const honestyLines: string[] = [
     "How this was counted: the same decision engine that prints the check page receipt ran once per study tone, with the study framing that passed and no owned bottles listed, and the verdicts on those six receipts were counted. Nothing on this screen is computed any other way.",
     "Study set: the six tones are the synthetic faces from the C088 measurement study, each generated to a known skin tone. The set is small by design: six tones, one per band the study covered.",
-    "Catalog: the shades ranked here are the fixture catalog, placeholder shades invented for the study and labelled fixture in their own records, standing in for the licensed catalog until it lands.",
+    catalogLine,
     "These are study results on six synthetic faces, not population statistics. They describe how this catalog covers this test set, and nothing wider.",
     "Every share is a count of 6 first. The percentage beside it is that same count rounded to the nearest percent, never a separate measurement.",
   ];

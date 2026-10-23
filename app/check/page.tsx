@@ -28,7 +28,9 @@ export default function CheckPage() {
           Judges with the event passcode can run the same check on a
           real photo below. It makes one live Skin Tone call, spends
           real units under server-side caps, and prints a receipt
-          labelled LIVE from the same engine.
+          labelled LIVE from the same engine, ranked against the
+          licensed shade catalog (The Pudding foundation shades
+          dataset, 2018 swatches, MIT License).
         </p>
       </section>
       <LiveCheck />
