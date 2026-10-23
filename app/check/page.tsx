@@ -1,4 +1,5 @@
 import CheckFlow from "./CheckFlow";
+import LiveCheck from "./LiveCheck";
 
 export default function CheckPage() {
   return (
@@ -21,6 +22,16 @@ export default function CheckPage() {
         </p>
       </section>
       <CheckFlow />
+      <section className="check-head">
+        <h2>Live check</h2>
+        <p>
+          Judges with the event passcode can run the same check on a
+          real photo below. It makes one live Skin Tone call, spends
+          real units under server-side caps, and prints a receipt
+          labelled LIVE from the same engine.
+        </p>
+      </section>
+      <LiveCheck />
     </div>
   );
 }

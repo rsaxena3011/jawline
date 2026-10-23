@@ -64,7 +64,7 @@ const NOT_APPLICABLE = "Not applicable on this receipt";
 export function buildReceiptView(receipt: Receipt): ReceiptView {
   const fixtureLabel = receipt.fixtureMode
     ? "Fixture mode: this receipt replays recorded study data. No live API call was made."
-    : "Live mode receipt.";
+    : "Live mode: this receipt comes from one real Skin Tone call on the uploaded photo. The planner log below shows the units it spent.";
 
   const measuredToneText =
     receipt.measuredToneHex !== null

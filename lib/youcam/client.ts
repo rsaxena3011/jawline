@@ -68,6 +68,21 @@ export class YouCamTaskError extends YouCamError {
   }
 }
 
+/**
+ * The task was created and may still finish; only the polling
+ * window ran out. Kept distinct from a task-level failure because
+ * the recovery differs: a timed-out task can be resumed by id and
+ * must never be re-created, while a failed task is refunded and
+ * closed. The provider charges for a task that finishes, checked
+ * or not, so a timeout is never treated as "nothing happened".
+ */
+export class YouCamTaskTimeoutError extends YouCamTaskError {
+  constructor(message: string) {
+    super(message);
+    this.name = "YouCamTaskTimeoutError";
+  }
+}
+
 function authHeaders(client: YouCamClient): Record<string, string> {
   return { Authorization: `Bearer ${client.apiKey}` };
 }
@@ -323,7 +338,7 @@ export async function pollTask(
       );
     }
     if (Date.now() >= deadline) {
-      throw new YouCamTaskError(
+      throw new YouCamTaskTimeoutError(
         `YouCam task ${taskId} (${taskType}) did not finish within ` +
           `${Math.round(client.pollTimeoutMs / 1000)}s. Check its status ` +
           "before spending again; a finished-but-unchecked task is still charged.",
@@ -343,6 +358,63 @@ export async function runTask(
 ): Promise<Record<string, unknown>> {
   const taskId = await createTask(client, taskType, params);
   return pollTask(client, taskType, taskId);
+}
+
+/* ------------------------------------------------------------------ */
+/* Unit balance                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Read the account's real remaining units from the provider's own
+ * unit endpoint, GET /s2s/v1.0/client/credit (documented in the
+ * official API docs, "Get unit info"). The response lists credit
+ * buckets as { id, type, amount, expiry }; the balance is the sum
+ * of amounts whose expiry is still in the future. This is the API
+ * counterpart of the console Unit Records the study reconciled
+ * against (study/STUDY_LOG.md), so spend deltas measured here are
+ * the same deltas the console ledger shows.
+ *
+ * Returns null when the balance cannot be read (network, auth, or
+ * an unexpected shape). Callers must treat null as "unknown",
+ * never as zero and never as "fine": the ledger contract.
+ */
+export async function getUnitBalance(
+  client: YouCamClient,
+): Promise<number | null> {
+  let res: Response;
+  try {
+    res = await client.fetchFn(`${client.baseUrl}/s2s/v1.0/client/credit`, {
+      headers: authHeaders(client),
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  let raw: unknown;
+  try {
+    raw = await readJson(res);
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const data =
+    obj.data && typeof obj.data === "object"
+      ? (obj.data as Record<string, unknown>)
+      : obj;
+  const buckets = Array.isArray(data.results) ? data.results : null;
+  if (!buckets) return null;
+  const now = Date.now();
+  let total = 0;
+  let seen = false;
+  for (const bucket of buckets as Record<string, unknown>[]) {
+    if (!bucket || typeof bucket.amount !== "number") continue;
+    const expiry = typeof bucket.expiry === "number" ? bucket.expiry : null;
+    if (expiry !== null && expiry <= now) continue;
+    total += bucket.amount;
+    seen = true;
+  }
+  return seen ? total : null;
 }
 
 /* ------------------------------------------------------------------ */

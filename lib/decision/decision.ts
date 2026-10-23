@@ -1,9 +1,12 @@
 /**
  * The decision engine: capture gate, owned-bottle check, catalog
- * ranking, verdict. Fixture mode only in this slice: the skin tone
- * reading arrives as a recorded result, no API call is made, and
- * the planner log prices what each step WOULD cost live so the
- * receipt's spend story is honest before live mode exists.
+ * ranking, verdict. The engine is pure and mode-agnostic: the skin
+ * tone reading arrives as a SkinToneResult, recorded (fixture mode)
+ * or from one live API call (live mode), in the same shape either
+ * way, and the planner log prices each step honestly for the mode
+ * it ran in. Whoever calls live mode owns the spend discipline
+ * (passcode, caps, ledger, recovery) in lib/live; the engine only
+ * reports what it was told the call spent.
  *
  * Verdict rules (MERGED_PLAN_V2, as amended by the 2026-10-22 study):
  * - Only skin_color is load-bearing. Hair, eye and lip colours and
@@ -118,13 +121,28 @@ export interface Receipt {
   unitsSpent: number;
 }
 
+/**
+ * Where the skin tone reading came from. Fixture mode replays a
+ * recorded result and spends nothing. Live mode carries the units
+ * the real call actually spent (settled from the balance delta, or
+ * the verified per-call cost when no balance read was available),
+ * so the receipt and the planner log tell the same story in both
+ * modes. The verdict logic never branches on this: only the labels
+ * and the spend accounting do.
+ */
+export type ReadingSource =
+  | { kind: "fixture" }
+  | { kind: "live"; unitsSpent: number; note?: string };
+
 export interface DecisionInput {
   capture: CaptureMeasurement;
-  /** Recorded Skin Tone result (fixture mode) for this slice. */
+  /** Skin Tone result: recorded (fixture) or live, same shape. */
   skinTone: SkinToneResult | null;
   catalog: Catalog;
   /** Bottles the user already owns, as catalog-shaped entries. */
   ownedShades: ShadeEntry[];
+  /** Defaults to fixture mode, the only mode slices 1-2 knew. */
+  readingSource?: ReadingSource;
 }
 
 function rankCatalog(toneHex: string, catalog: Catalog): RankedShade[] {
@@ -155,6 +173,10 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * replay and the test suite possible.
  */
 export function runDecision(input: DecisionInput): Receipt {
+  const source: ReadingSource = input.readingSource ?? { kind: "fixture" };
+  const live = source.kind === "live";
+  /** Units the live call spent, attributed to this receipt. */
+  const liveUnits = live ? source.unitsSpent : 0;
   const log: PlannerStep[] = [];
   const done = (
     step: string,
@@ -182,7 +204,7 @@ export function runDecision(input: DecisionInput): Receipt {
       reasonTag: "capture-rejected",
       headline: `We can't tell from this photo. ${gate.reasons[0]}`,
       measuredToneHex: null,
-      fixtureMode: true,
+      fixtureMode: !live,
       ranking: [],
       ownedMatch: null,
       margin: null,
@@ -197,10 +219,23 @@ export function runDecision(input: DecisionInput): Receipt {
     `Framing passed: face fills ${Math.round(gate.faceWidthRatio * 100)}% of the photo width.`,
   );
 
-  // Step 2: the reading. Fixture mode replays a recorded result.
+  // Step 2: the reading. Fixture mode replays a recorded result;
+  // live mode arrives with the result of one real API call.
   const toneHex = input.skinTone?.skinColorHex ?? null;
   if (!toneHex || !isHexColor(toneHex)) {
-    skipped("skin-tone", "No usable skin_color reading was supplied.");
+    if (live) {
+      log.push({
+        step: "skin-tone",
+        outcome: "done",
+        unitsSpent: liveUnits,
+        liveUnits: TASK_COSTS["skin-tone"],
+        why:
+          source.note ??
+          "Live mode: the Skin Tone call returned no usable skin_color reading.",
+      });
+    } else {
+      skipped("skin-tone", "No usable skin_color reading was supplied.");
+    }
     skipped("owned-bottle-check", "Not run: there is no reading to check against.");
     skipped("catalog-ranking", "Not run: there is no reading to rank.");
     return {
@@ -209,23 +244,35 @@ export function runDecision(input: DecisionInput): Receipt {
       headline:
         "We can't tell: the skin tone reading is missing or unreadable, so no verdict is honest.",
       measuredToneHex: null,
-      fixtureMode: true,
+      fixtureMode: !live,
       ranking: [],
       ownedMatch: null,
       margin: null,
       noiseFloor: null,
       paleBand: false,
       plannerLog: log,
-      unitsSpent: 0,
+      unitsSpent: liveUnits,
     };
   }
-  log.push({
-    step: "skin-tone",
-    outcome: "replayed",
-    unitsSpent: 0,
-    liveUnits: TASK_COSTS["skin-tone"],
-    why: "Fixture mode: replayed a recorded Skin Tone result. Only its skin_color is used; the same payload's hair colour was wrong on 6 of 6 study faces and is ignored.",
-  });
+  if (live) {
+    log.push({
+      step: "skin-tone",
+      outcome: "done",
+      unitsSpent: liveUnits,
+      liveUnits: TASK_COSTS["skin-tone"],
+      why:
+        source.note ??
+        "Live mode: one Skin Tone call on the uploaded photo returned this reading. Only its skin_color is used; the same payload's hair colour was wrong on 6 of 6 study faces and is ignored.",
+    });
+  } else {
+    log.push({
+      step: "skin-tone",
+      outcome: "replayed",
+      unitsSpent: 0,
+      liveUnits: TASK_COSTS["skin-tone"],
+      why: "Fixture mode: replayed a recorded Skin Tone result. Only its skin_color is used; the same payload's hair colour was wrong on 6 of 6 study faces and is ignored.",
+    });
+  }
 
   const paleBand = hexToLab(toneHex).l >= PALE_BAND_MIN_L;
   const noiseFloor = paleBand ? MARGIN_NOISE_PALE : MARGIN_NOISE_STANDARD;
@@ -248,14 +295,14 @@ export function runDecision(input: DecisionInput): Receipt {
       reasonTag: "already-own-it",
       headline: `Don't buy: you already own ${owned.shade.brand} ${owned.shade.shadeName}, which matches your measured tone.`,
       measuredToneHex: toneHex,
-      fixtureMode: true,
+      fixtureMode: !live,
       ranking: [],
       ownedMatch: owned,
       margin: null,
       noiseFloor,
       paleBand,
       plannerLog: log,
-      unitsSpent: 0,
+      unitsSpent: liveUnits,
     };
   }
   done(
@@ -289,14 +336,14 @@ export function runDecision(input: DecisionInput): Receipt {
 
   const base = {
     measuredToneHex: toneHex,
-    fixtureMode: true,
+    fixtureMode: !live,
     ranking,
     ownedMatch: null,
     margin,
     noiseFloor,
     paleBand,
     plannerLog: log,
-    unitsSpent: 0,
+    unitsSpent: liveUnits,
   } as const;
 
   if (!best || best.distance > MATCH_MAX_DELTA_E) {

@@ -23,6 +23,7 @@ import {
   fixtureFraming,
 } from "../../lib/ui/fixture-session.ts";
 import { buildReceiptView } from "../../lib/ui/receipt-view.ts";
+import ReceiptSection from "./ReceiptSection";
 
 export default function CheckFlow() {
   const [toneId, setToneId] = useState<string>("tone2");
@@ -165,72 +166,10 @@ export default function CheckFlow() {
       ) : null}
 
       {view !== null ? (
-        <section className="receipt" aria-label="Decision receipt">
-          <p className="fixture-banner">{view.fixtureLabel}</p>
-          <p className="verdict-line">
-            <span className="verdict-chip">{view.verdict}</span>
-          </p>
-          <h2 className="receipt-headline">{view.headline}</h2>
-          <p className="reason-tag">Reason: {view.reasonTag}</p>
-          <p>{view.measuredToneText}</p>
-
-          <h3>Thresholds the engine applied</h3>
-          <dl className="thresholds">
-            {view.thresholdRows.map((row) => (
-              <div key={row.label} className="threshold-row">
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {view.rankingRows.length > 0 ? (
-            <>
-              <h3>Full ranking, closest first (fixture catalog)</h3>
-              <table className="ranking">
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Shade</th>
-                    <th scope="col">Hex</th>
-                    <th scope="col">Distance (CIEDE2000)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {view.rankingRows.map((row) => (
-                    <tr key={row.position}>
-                      <td>{row.position}</td>
-                      <td>{row.shadeLabel}</td>
-                      <td>
-                        <span
-                          className="swatch swatch-small"
-                          style={{ backgroundColor: row.hex }}
-                          aria-hidden="true"
-                        />{" "}
-                        {row.hex}
-                      </td>
-                      <td>{row.distanceText}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          ) : null}
-
-          {view.ownedText !== null ? <p>{view.ownedText}</p> : null}
-
-          <h3>Planner log</h3>
-          <ol className="planner">
-            {view.plannerRows.map((row) => (
-              <li key={row.step}>
-                <strong>{row.step}</strong> [{row.outcome}] {row.unitsText}
-                <br />
-                {row.why}
-              </li>
-            ))}
-          </ol>
-          <p className="units-total">{view.unitsSpentText}</p>
-        </section>
+        <ReceiptSection
+          view={view}
+          rankingHeading="Full ranking, closest first (fixture catalog)"
+        />
       ) : null}
     </div>
   );

@@ -45,9 +45,11 @@ export default function HomePage() {
         <h2>Status</h2>
         <p>
           Build in progress: the decision engine and its fixture-mode
-          check page are in. The check runs on recorded study data
-          only, with the gate, the owned-bottle check and the receipt
-          working end to end; no live API calls are made yet.
+          check page are in, and live mode now runs behind the judge
+          passcode on the same page: one real Skin Tone call through
+          the same engine, under server-side spend caps, with a
+          receipt labelled LIVE. Public visitors get the fixture
+          replay only.
         </p>
       </section>
     </div>
