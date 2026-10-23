@@ -22,6 +22,7 @@ export default function RootLayout({
           </Link>
           <nav className="site-nav">
             <Link href="/#how">How it works</Link>
+            <Link href="/check">Fixture check</Link>
             <Link href="/api/health">Health</Link>
           </nav>
         </header>

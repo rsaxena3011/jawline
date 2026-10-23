@@ -44,8 +44,10 @@ export default function HomePage() {
       <section className="status">
         <h2>Status</h2>
         <p>
-          Build in progress (phase 1 scaffold: API client skeleton, unit
-          ledger, catalog, and replay plumbing; no live API calls yet).
+          Build in progress: the decision engine and its fixture-mode
+          check page are in. The check runs on recorded study data
+          only, with the gate, the owned-bottle check and the receipt
+          working end to end; no live API calls are made yet.
         </p>
       </section>
     </div>

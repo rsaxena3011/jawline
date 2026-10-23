@@ -17,7 +17,9 @@
  * ignores it: only skinColorHex is load-bearing, ever.
  */
 
+import { parseCatalog, type Catalog, type ShadeEntry } from "../catalog/types.ts";
 import type { SkinToneResult } from "../youcam/types.ts";
+import { hexToLab } from "./color.ts";
 
 export interface StudyToneFixture {
   /** Study id, e.g. "tone2". */
@@ -104,4 +106,49 @@ export function studyTone(id: string): StudyToneFixture {
   const found = STUDY_TONES.find((t) => t.id === id);
   if (!found) throw new Error(`Unknown study tone fixture: ${id}`);
   return found;
+}
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+function fixtureShade(id: string, shadeName: string, hex: string): ShadeEntry {
+  const lab = hexToLab(hex);
+  return {
+    id,
+    brand: "FIXTURE Brand",
+    product: "Fixture Foundation (placeholder)",
+    shadeId: id.toUpperCase(),
+    shadeName,
+    hex,
+    lab: { l: round3(lab.l), a: round3(lab.a), b: round3(lab.b) },
+    finish: "satin",
+    source:
+      "C088 study fixture: shade placed at a recorded API reading, not a real product",
+    sourceDate: "2026-10-22",
+    reliability:
+      "FIXTURE ONLY: invented to exercise ranking and verdicts. Never a real product.",
+    license: "CC0 (project-authored placeholder)",
+    fixture: true,
+  };
+}
+
+/**
+ * The fixture-mode catalog: one shade placed exactly at each study
+ * tone's recorded reading, plus two far decoys. This is the dense
+ * catalog the slice-1 smoke run used (tone2 lands SHADE-RISK, tone6
+ * abstains), and it is what fixture mode ranks against until a real,
+ * licensed catalog replaces it in a later slice. Every entry is
+ * labelled fixture in its own provenance fields.
+ */
+export function studyFixtureCatalog(): Catalog {
+  const matches = STUDY_TONES.map((t) =>
+    fixtureShade(`match-${t.id}`, `Study Match ${t.id}`, t.result.skinColorHex),
+  );
+  return parseCatalog({
+    version: 1,
+    shades: [
+      ...matches,
+      fixtureShade("decoy-plum", "Decoy Deep Plum", "#5B2333"),
+      fixtureShade("decoy-pink", "Decoy Pale Pink", "#EFD3C5"),
+    ],
+  });
 }
