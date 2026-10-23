@@ -21,18 +21,32 @@
  *   the user already owns sits within the buy threshold of their
  *   measured tone, the answer is NO, already own it, and it costs 0
  *   units to say so (defect #7 in DEFECT_LOG).
- * - BUY needs a close match that beats the runner-up by more than
- *   the noise floor for the reading's band. The floors come from the
- *   study: two honest measurements of the same face (API reading vs
- *   pixel medians) disagreed by 4.6 to 13.3 CIEDE2000, worst at the
- *   pale end, where adjacent faces' readings sit 1.6 to 1.7 apart
- *   despite being clearly different people. At the pale end the
- *   reading cannot separate close candidates, so the engine
- *   abstains with CAN'T TELL instead of guessing (defect #6).
+ * - BUY follows the cluster rule (boss ruling 2026-10-23, closing
+ *   defects #10 and #6). The original rule demanded the winner beat
+ *   the runner-up by more than the noise floor; against a real
+ *   catalog of 617 shades the top two sit 0.25 to 1.10 apart, far
+ *   inside the floors, so BUY could never fire and the product
+ *   shipped as a machine that only hedges. The ruling separates
+ *   two risks the margin rule had merged: "this shade might not
+ *   match your face" is a real risk; "this shade might not be
+ *   uniquely the best" is no risk when the near-tied alternatives
+ *   are themselves matches. So: the cluster is every shade within
+ *   the band's noise floor of the winner's distance, and BUY fires
+ *   when the winner is inside the match range and every cluster
+ *   member is inside it too. The receipt names the whole cluster
+ *   and never claims a unique winner the measurement cannot
+ *   support. SHADE-RISK is what remains genuinely risky: a cluster
+ *   member outside the match range, where the reading cannot
+ *   separate a match from a near miss.
+ * - The floors come from the study: two honest measurements of the
+ *   same face (API reading vs pixel medians) disagreed by 4.6 to
+ *   13.3 CIEDE2000, worst at the pale end, where adjacent faces'
+ *   readings sit 1.6 to 1.7 apart despite being clearly different
+ *   people. That is why the pale band's cluster is wider: at the
+ *   pale end more shades count as within noise of the winner.
  *
  * Thresholds below are working values derived from that one study.
- * They are stated on the receipt, not hidden, and defect #6 stays
- * open until repeatability data (repeated captures) replaces them.
+ * They are stated on the receipt, not hidden.
  */
 
 import type { Catalog, ShadeEntry } from "../catalog/types.ts";
@@ -45,20 +59,21 @@ import { deltaE2000, hexToLab, isHexColor } from "./color.ts";
 export const MATCH_MAX_DELTA_E = 6.0;
 
 /**
- * Standard margin: the winner must beat the runner-up by more than
- * this, or the two candidates are within measurement noise. Set
- * just above the smallest separation between two genuinely
+ * Standard cluster width: a shade whose distance from the measured
+ * tone sits within this much of the winner's distance counts as
+ * within measurement noise of the winner, and joins its cluster.
+ * Set just above the smallest separation between two genuinely
  * different faces' readings in the mid cluster (tone2 vs tone3,
  * 2.85 in the study).
  */
 export const MARGIN_NOISE_STANDARD = 3.0;
 
 /**
- * Pale-end margin: widest abstention, per the study. Pale readings
+ * Pale-end cluster width: wider, per the study. Pale readings
  * compress hardest (tone5 and tone6 readings sit 1.73 apart for
  * clearly different faces; tone6's reading disagreed with its own
- * face by 13.26), so a pale winner must clear the runner-up by more
- * than this before the engine will speak at all.
+ * face by 13.26), so at the pale end more shades count as within
+ * noise of the winner, and the cluster reaches further.
  */
 export const MARGIN_NOISE_PALE = 5.0;
 
@@ -69,11 +84,11 @@ export type Verdict = "BUY" | "SHADE-RISK" | "NO" | "CAN'T TELL";
 
 export type ReasonTag =
   | "clear-match"
+  | "cluster-match"
   | "candidates-within-noise"
   | "already-own-it"
   | "no-shade-in-range"
   | "capture-rejected"
-  | "pale-end-abstention"
   | "reading-unusable";
 
 export interface PlannerStep {
@@ -97,6 +112,21 @@ export interface OwnedMatch {
   distance: number;
 }
 
+/**
+ * One member of the winner's cluster: a shade within the band's
+ * noise floor of the winner's distance. The engine marks whether
+ * the member itself sits inside the match range, because that is
+ * the fact the BUY rule turns on (and the receipt view copies the
+ * mark rather than recomputing it).
+ */
+export interface ClusterMember {
+  shade: ShadeEntry;
+  /** CIEDE2000 distance from the measured tone. */
+  distance: number;
+  /** True when this member is itself inside the match range. */
+  inMatchRange: boolean;
+}
+
 export interface Receipt {
   verdict: Verdict;
   reasonTag: ReasonTag;
@@ -108,6 +138,13 @@ export interface Receipt {
   fixtureMode: boolean;
   /** Full catalog ranking, closest first. Empty when short-circuited. */
   ranking: RankedShade[];
+  /**
+   * The winner's cluster, winner first: every shade within the
+   * noise floor of the winner's distance, each marked in or out
+   * of the match range. Empty when no cluster was formed (the run
+   * short-circuited, or no shade sat inside the match range).
+   */
+  cluster: ClusterMember[];
   /** Set when the owned-bottle check decided the outcome. */
   ownedMatch: OwnedMatch | null;
   /** Winner's margin over the runner-up, when a ranking exists. */
@@ -206,6 +243,7 @@ export function runDecision(input: DecisionInput): Receipt {
       measuredToneHex: null,
       fixtureMode: !live,
       ranking: [],
+      cluster: [],
       ownedMatch: null,
       margin: null,
       noiseFloor: null,
@@ -246,6 +284,7 @@ export function runDecision(input: DecisionInput): Receipt {
       measuredToneHex: null,
       fixtureMode: !live,
       ranking: [],
+      cluster: [],
       ownedMatch: null,
       margin: null,
       noiseFloor: null,
@@ -297,6 +336,7 @@ export function runDecision(input: DecisionInput): Receipt {
       measuredToneHex: toneHex,
       fixtureMode: !live,
       ranking: [],
+      cluster: [],
       ownedMatch: owned,
       margin: null,
       noiseFloor,
@@ -318,6 +358,44 @@ export function runDecision(input: DecisionInput): Receipt {
     "catalog-ranking",
     `Ranked ${ranking.length} catalog shades by CIEDE2000 against the measured tone, locally, for 0 units.`,
   );
+
+  const best = ranking[0] ?? null;
+  const runnerUp = ranking[1] ?? null;
+  const margin =
+    best && runnerUp ? round2(runnerUp.distance - best.distance) : null;
+
+  // Step 5: the cluster evaluation (cluster rule, boss ruling
+  // 2026-10-23). The cluster is every shade within the band's
+  // noise floor of the winner's distance. It only exists when
+  // there is a winner inside the match range to cluster around.
+  const cluster: ClusterMember[] =
+    best && best.distance <= MATCH_MAX_DELTA_E
+      ? ranking
+          .filter((row) => row.distance <= best.distance + noiseFloor)
+          .map((row) => ({
+            shade: row.shade,
+            distance: row.distance,
+            inMatchRange: row.distance <= MATCH_MAX_DELTA_E,
+          }))
+      : [];
+  const clusterOutsiders = cluster.filter((row) => !row.inMatchRange);
+  if (!best) {
+    skipped(
+      "cluster-evaluation",
+      "Not run: this catalog has no shades, so there is no top pick to cluster around.",
+    );
+  } else if (best.distance > MATCH_MAX_DELTA_E) {
+    skipped(
+      "cluster-evaluation",
+      `Not run: the closest shade sits ${round2(best.distance)} from your measured tone, outside the match range of ${MATCH_MAX_DELTA_E}, so there is no match to cluster around.`,
+    );
+  } else {
+    done(
+      "cluster-evaluation",
+      `Cluster check: ${cluster.length} shade${cluster.length === 1 ? "" : "s"} sit within the noise floor of ${noiseFloor} around the top pick's distance of ${round2(best.distance)}; ${clusterOutsiders.length === 0 ? "every one of them is inside" : `${clusterOutsiders.length} of them fall${clusterOutsiders.length === 1 ? "s" : ""} outside`} the match range of ${MATCH_MAX_DELTA_E}.`,
+    );
+  }
+
   skipped(
     "skin-analysis",
     "Not run: its scores carry no verdict authority (a low score means a concern is more visible; it is not a confidence value), and the ranking already decides this purchase.",
@@ -329,15 +407,11 @@ export function runDecision(input: DecisionInput): Receipt {
     TASK_COSTS["makeup-vto"],
   );
 
-  const best = ranking[0] ?? null;
-  const runnerUp = ranking[1] ?? null;
-  const margin =
-    best && runnerUp ? round2(runnerUp.distance - best.distance) : null;
-
   const base = {
     measuredToneHex: toneHex,
     fixtureMode: !live,
     ranking,
+    cluster,
     ownedMatch: null,
     margin,
     noiseFloor,
@@ -357,29 +431,40 @@ export function runDecision(input: DecisionInput): Receipt {
     };
   }
 
-  // A single candidate with no runner-up clears the margin by default.
-  const clearMargin = margin === null || margin > noiseFloor;
-  if (!clearMargin) {
-    if (paleBand) {
-      return {
-        ...base,
-        verdict: "CAN'T TELL",
-        reasonTag: "pale-end-abstention",
-        headline: `We can't tell: at the pale end, readings compress, and the top two shades sit only ${margin} apart, inside the pale noise floor of ${noiseFloor}. A wrong call here is likelier than a right one.`,
-      };
-    }
+  const bestLabel = `${best.shade.brand} ${best.shade.shadeName}`;
+
+  // SHADE-RISK: the winner matches, but the measurement cannot
+  // separate it from a near miss: at least one shade within noise
+  // of the winner falls outside the match range.
+  if (clusterOutsiders.length > 0) {
+    const firstOutsider = clusterOutsiders[0];
     return {
       ...base,
       verdict: "SHADE-RISK",
       reasonTag: "candidates-within-noise",
-      headline: `Shade risk: ${best.shade.brand} ${best.shade.shadeName} ranks first, but the runner-up sits only ${margin} behind it, inside the noise floor of ${noiseFloor}. Either could be your match.`,
+      headline: `Shade risk: ${bestLabel} matches your measured tone at ${round2(best.distance)}, but ${clusterOutsiders.length} shade${clusterOutsiders.length === 1 ? "" : "s"} within measurement noise of it fall${clusterOutsiders.length === 1 ? "s" : ""} outside the match range of ${MATCH_MAX_DELTA_E} (closest: ${firstOutsider.shade.brand} ${firstOutsider.shade.shadeName} at ${round2(firstOutsider.distance)}). The reading cannot separate a match from a near miss here.`,
     };
   }
 
+  // BUY, cluster of one: no other shade is within noise of the
+  // winner, so the pick is the winner outright.
+  if (cluster.length <= 1) {
+    return {
+      ...base,
+      verdict: "BUY",
+      reasonTag: "clear-match",
+      headline: `Buy: ${bestLabel} matches your measured tone at ${round2(best.distance)}, and no other shade in this catalog sits within measurement noise of that match.`,
+    };
+  }
+
+  // BUY, cluster pick: every shade within noise of the winner is
+  // itself a match, so the pick does not rest on telling
+  // near-identical shades apart. The headline names the cluster
+  // and never claims a unique winner.
   return {
     ...base,
     verdict: "BUY",
-    reasonTag: "clear-match",
-    headline: `Buy: ${best.shade.brand} ${best.shade.shadeName} matches your measured tone at ${round2(best.distance)}, clear of the runner-up by ${margin === null ? "default (it is the only candidate)" : margin}.`,
+    reasonTag: "cluster-match",
+    headline: `Buy: top pick is ${bestLabel} at ${round2(best.distance)}; ${cluster.length} shades sit within measurement noise of each other here and all of them match your measured tone. This is a cluster pick, not a unique winner.`,
   };
 }

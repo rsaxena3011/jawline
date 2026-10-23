@@ -17,10 +17,13 @@ import { buildReceiptView } from "../../ui/receipt-view.ts";
  * or the brand screen); and the brand aggregate over this catalog
  * equals an independent per-tone tally through the same engine
  * path the receipt uses. The pinned distribution at the end is
- * the measured baseline for this catalog, recorded in BUILD_LOG:
- * a dense real catalog puts every tone's top shades inside the
- * noise floors, so the engine names no BUY. That is the engine
- * behaving as designed, not a target to tune towards.
+ * the measured baseline for this catalog under the cluster rule
+ * (boss ruling 2026-10-23, defect #10), recorded in BUILD_LOG:
+ * the three standard-band tones return BUY as cluster picks,
+ * and the three pale tones return SHADE-RISK because the pale
+ * band's wider 5.0 cluster reaches past the match-range edge.
+ * That is the rule behaving as ruled, not a target to tune
+ * thresholds towards.
  */
 
 let pass = 0;
@@ -202,11 +205,33 @@ function main() {
   // ---- Pinned measured baseline for this catalog (BUILD_LOG) ----
   check(
     view.perTone.map((row) => row.verdict).join("|") ===
-      "SHADE-RISK|SHADE-RISK|SHADE-RISK|CAN'T TELL|CAN'T TELL|CAN'T TELL" &&
-      (tally.get("BUY") ?? 0) === 0 &&
+      "BUY|BUY|BUY|SHADE-RISK|SHADE-RISK|SHADE-RISK" &&
+      (tally.get("BUY") ?? 0) === 3 &&
       view.coverageGapLine ===
-        "6 of 6 study tones had no safe BUY in this catalog",
-    "baseline holds: no BUY against the dense licensed catalog; tones 1 to 3 SHADE-RISK, tones 4 to 6 CAN'T TELL, gap 6 of 6",
+        "3 of 6 study tones had no safe BUY in this catalog",
+    "baseline holds under the cluster rule: tones 1 to 3 BUY as cluster picks, tones 4 to 6 SHADE-RISK (pale clusters straddle the range edge), gap 3 of 6",
+  );
+  check(
+    receipts.every(
+      (receipt) =>
+        receipt.cluster.length > 0 &&
+        receipt.cluster[0].shade.id === receipt.ranking[0].shade.id,
+    ) &&
+      receipts
+        .slice(0, 3)
+        .every(
+          (receipt) =>
+            receipt.verdict === "BUY" &&
+            receipt.cluster.every((row) => row.inMatchRange),
+        ) &&
+      receipts
+        .slice(3)
+        .every(
+          (receipt) =>
+            receipt.verdict === "SHADE-RISK" &&
+            receipt.cluster.some((row) => !row.inMatchRange),
+        ),
+    "every licensed receipt carries its cluster, winner first; the BUY clusters are fully in range and each SHADE-RISK cluster has a member outside it",
   );
 
   // ---- Attack: a damaged licensed entry is refused at load ----

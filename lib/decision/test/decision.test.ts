@@ -10,11 +10,14 @@ import {
 import { STUDY_TONES, studyTone } from "../fixtures.ts";
 
 /**
- * Decision engine, fixture mode end to end. Covers the five
- * behaviours the slice promises: the capture gate, the owned-bottle
- * short-circuit, ranking order on the study's six tones, the BUY
- * margin rule, and the CAN'T TELL abstention at the pale end.
- * Everything runs on recorded study data; no API call exists here.
+ * Decision engine, fixture mode end to end. Covers the capture
+ * gate, the owned-bottle short-circuit, ranking order on the
+ * study's six tones, and the cluster rule for BUY (boss ruling
+ * 2026-10-23, defect #10): a dense cluster whose members all sit
+ * inside the match range returns BUY with the cluster named, a
+ * cluster straddling the range edge returns SHADE-RISK, and the
+ * pale band widens the cluster to its 5.0 floor. Everything runs
+ * on recorded study data; no API call exists here.
  */
 
 let pass = 0;
@@ -135,21 +138,46 @@ function main() {
     );
   }
 
-  // ---- Verdicts on the shared (dense) catalog ----
+  // ---- Verdicts on the shared (dense) catalog: cluster rule ----
+  // Under the cluster rule (boss ruling 2026-10-23), every study
+  // tone's own match sits at distance ~0 and every shade within
+  // noise of it is itself inside the match range, so all six
+  // tones return BUY, the pale ones as cluster picks.
   for (const id of ["tone5", "tone6"]) {
     const receipt = runDecision(input(id));
     check(
-      receipt.verdict === "CAN'T TELL" && receipt.reasonTag === "pale-end-abstention",
-      `${id}: CAN'T TELL at the pale end instead of a guessed BUY`,
+      receipt.verdict === "BUY" &&
+        receipt.reasonTag === "cluster-match" &&
+        receipt.cluster.length === 4 &&
+        receipt.cluster.every((row) => row.inMatchRange),
+      `${id}: pale cluster of 4, all inside the match range: BUY as a cluster pick`,
     );
   }
   const dense2 = runDecision(input("tone2"));
   check(
-    dense2.verdict === "SHADE-RISK" && dense2.reasonTag === "candidates-within-noise",
-    "tone2 on the dense catalog: SHADE-RISK (tone3's shade sits 2.85 behind)",
+    dense2.verdict === "BUY" && dense2.reasonTag === "cluster-match",
+    "tone2 on the dense catalog: BUY (tone3's shade sits 2.85 behind, inside the cluster and inside the range)",
   );
 
-  // ---- BUY margin rule on scenario catalogs ----
+  // (a) A dense cluster, all members inside range: BUY, cluster
+  // named on the receipt, top pick first.
+  check(
+    dense2.cluster.length === 2 &&
+      dense2.cluster[0].shade.id === "match-tone2" &&
+      dense2.cluster[1].shade.id === "match-tone3" &&
+      dense2.cluster.every((row) => row.inMatchRange) &&
+      dense2.headline.includes("2 shades sit within measurement noise") &&
+      dense2.headline.includes("cluster pick, not a unique winner"),
+    "dense cluster all inside range: BUY names the cluster and never claims a unique winner",
+  );
+  check(
+    plannerStep(dense2, "cluster-evaluation")?.outcome === "done" &&
+      (plannerStep(dense2, "cluster-evaluation")?.why.includes("Cluster check: 2 shades") ??
+        false),
+    "the planner log records the cluster evaluation and its size",
+  );
+
+  // ---- BUY cluster rule on scenario catalogs ----
   const sparse = catalogOf([
     fixtureShade("match-tone2", "Study Match tone2", studyTone("tone2").result.skinColorHex),
     fixtureShade("decoy-plum", "Decoy Deep Plum", "#5B2333"),
@@ -160,21 +188,76 @@ function main() {
     buy.verdict === "BUY" && buy.reasonTag === "clear-match",
     "a lone clear match with far decoys returns BUY",
   );
+  // (c) A cluster of one keeps the plain BUY wording.
+  check(
+    buy.cluster.length === 1 &&
+      buy.cluster[0].shade.id === "match-tone2" &&
+      buy.headline.includes("no other shade in this catalog sits within measurement noise"),
+    "single-member cluster: plain BUY wording, no cluster claim",
+  );
   const pairCatalog = catalogOf([
     fixtureShade("match-tone2", "Study Match tone2", studyTone("tone2").result.skinColorHex),
     fixtureShade("match-tone4", "Study Match tone4", studyTone("tone4").result.skinColorHex),
   ]);
+  const pairRun = runDecision(input("tone2", { catalog: pairCatalog }));
   check(
-    runDecision(input("tone2", { catalog: pairCatalog })).verdict === "BUY",
-    "margin of 5.90 over the runner-up clears the 3.0 floor: BUY",
+    pairRun.verdict === "BUY" && pairRun.cluster.length === 1,
+    "runner-up 5.90 away, outside the 3.0 cluster width: BUY with a cluster of one",
   );
   const closePair = catalogOf([
     fixtureShade("match-tone2", "Study Match tone2", studyTone("tone2").result.skinColorHex),
     fixtureShade("match-tone3", "Study Match tone3", studyTone("tone3").result.skinColorHex),
   ]);
   check(
-    runDecision(input("tone2", { catalog: closePair })).verdict === "SHADE-RISK",
-    "margin of 2.85 under the 3.0 floor: SHADE-RISK, not BUY",
+    runDecision(input("tone2", { catalog: closePair })).verdict === "BUY",
+    "runner-up 2.85 away joins the cluster and is itself a match: BUY, where the old margin rule said SHADE-RISK",
+  );
+
+  // (b) A cluster member outside the match range: SHADE-RISK.
+  // Winner #a06e4e sits ~5.40 from tone2's reading (inside the
+  // range, near its edge); #9c6b4a sits ~6.56 away, within the
+  // winner's cluster width (5.40 + 3.0) but outside the range.
+  const straddle = catalogOf([
+    fixtureShade("straddle-winner", "Straddle Winner", "#a06e4e"),
+    fixtureShade("straddle-outsider", "Straddle Outsider", "#9c6b4a"),
+  ]);
+  const straddleRun = runDecision(input("tone2", { catalog: straddle }));
+  const straddleWinner = straddleRun.ranking[0];
+  const straddleOutsider = straddleRun.ranking[1];
+  check(
+    straddleWinner.distance > 3 &&
+      straddleWinner.distance <= 6.0 &&
+      straddleOutsider.distance > 6.0 &&
+      straddleOutsider.distance <= straddleWinner.distance + MARGIN_NOISE_STANDARD,
+    "straddle fixture sits where the test needs it: winner in range near the edge, second shade in the cluster width but out of range",
+  );
+  check(
+    straddleRun.verdict === "SHADE-RISK" &&
+      straddleRun.reasonTag === "candidates-within-noise" &&
+      straddleRun.cluster.length === 2 &&
+      straddleRun.cluster[0].inMatchRange &&
+      !straddleRun.cluster[1].inMatchRange &&
+      straddleRun.headline.includes("outside the match range"),
+    "cluster member outside the match range: SHADE-RISK, with the outsider marked on the receipt",
+  );
+
+  // (d) The pale band widens the cluster to its 5.0 floor.
+  // tone3's shade hex sits 4.87 from tone6's reading: outside a
+  // 3.0-wide cluster, inside the pale 5.0 width.
+  const palePair = catalogOf([
+    fixtureShade("match-tone6", "Study Match tone6", studyTone("tone6").result.skinColorHex),
+    fixtureShade("match-tone3", "Study Match tone3", studyTone("tone3").result.skinColorHex),
+  ]);
+  const paleRun = runDecision(input("tone6", { catalog: palePair }));
+  check(
+    paleRun.noiseFloor === MARGIN_NOISE_PALE &&
+      paleRun.ranking[1].distance > MARGIN_NOISE_STANDARD &&
+      paleRun.ranking[1].distance <= MARGIN_NOISE_PALE &&
+      paleRun.cluster.length === 2 &&
+      paleRun.cluster[1].shade.id === "match-tone3" &&
+      paleRun.verdict === "BUY" &&
+      paleRun.reasonTag === "cluster-match",
+    "pale band: a shade 4.87 away joins the cluster only because the pale floor is 5.0, not 3.0",
   );
 
   // ---- NO when nothing in the catalog is in range ----
@@ -204,6 +287,11 @@ function main() {
     owned.ranking.length === 0 &&
       plannerStep(owned, "catalog-ranking")?.outcome === "skipped",
     "the owned-bottle verdict short-circuits before any ranking",
+  );
+  check(
+    owned.cluster.length === 0 &&
+      plannerStep(owned, "cluster-evaluation") === undefined,
+    "the owned-bottle verdict short-circuits before any cluster logic runs",
   );
   const farOwned = fixtureShade("owned-far", "Old Bottle", "#5B2333");
   const notOwned = runDecision(input("tone2", {

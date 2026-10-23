@@ -54,16 +54,29 @@ function main() {
     ownedName: "",
   };
 
-  // ---- tone2: SHADE-RISK reaches the screen verbatim ----
+  // ---- tone2: cluster BUY reaches the screen verbatim ----
   const tone2 = runSelection(plain);
   check(
-    tone2.receipt.verdict === "SHADE-RISK" &&
+    tone2.receipt.verdict === "BUY" &&
       tone2.view.verdict === tone2.receipt.verdict,
-    "tone2: the engine says SHADE-RISK and the screen's verdict is that value",
+    "tone2: the engine says BUY (cluster rule) and the screen's verdict is that value",
   );
   check(
     tone2.view.headline === tone2.receipt.headline,
-    "tone2: the SHADE-RISK headline renders character for character as the engine wrote it",
+    "tone2: the cluster BUY headline renders character for character as the engine wrote it",
+  );
+  check(
+    tone2.receipt.cluster.length === 2 &&
+      tone2.view.clusterText !== null &&
+      tone2.receipt.cluster.every((row) =>
+        tone2.view.clusterText?.includes(
+          `${row.shade.brand} ${row.shade.shadeName} (${row.shade.hex}) at ${formatDistance(row.distance)}`,
+        ),
+      ) &&
+      thresholdValue(tone2.view, "Shades within noise of the top pick") ===
+        "2" &&
+      tone2.view.allLines.includes(tone2.view.clusterText),
+    "tone2: the cluster reaches the screen with every member's label, hex and the engine's distance, copied not recomputed",
   );
   const runnerUp = tone2.receipt.ranking[1];
   check(
@@ -81,12 +94,18 @@ function main() {
     "tone2: margin and noise floor on screen are the receipt's own numbers",
   );
 
-  // ---- tone6: CAN'T TELL at the pale end, verbatim ----
+  // ---- tone6: pale cluster BUY, verbatim ----
   const tone6 = runSelection({ ...plain, toneId: "tone6" });
   check(
-    tone6.receipt.verdict === "CAN'T TELL" &&
+    tone6.receipt.verdict === "BUY" &&
       tone6.view.headline === tone6.receipt.headline,
-    "tone6: the CAN'T TELL headline renders character for character as the engine wrote it",
+    "tone6: the pale cluster BUY headline renders character for character as the engine wrote it",
+  );
+  check(
+    tone6.receipt.cluster.length === 4 &&
+      tone6.view.clusterText !== null &&
+      tone6.view.clusterText.includes("4 shades within measurement noise"),
+    "tone6: the screen names the pale cluster of 4 the engine formed at the 5.0 floor",
   );
   check(
     tone6.view.rankingRows[0]?.distanceText ===
@@ -109,6 +128,14 @@ function main() {
           row.why === tone2.receipt.plannerLog[i].why,
       ),
     "planner log: every step reaches the screen in order, with its reason verbatim",
+  );
+  const clusterRow = tone2.view.plannerRows.find(
+    (row) => row.step === "cluster-evaluation",
+  );
+  check(
+    clusterRow?.outcome === "done" &&
+      (clusterRow?.why.includes("Cluster check: 2 shades") ?? false),
+    "planner log: the cluster evaluation is on screen as done, with the engine's cluster size",
   );
   const vtoRow = tone2.view.plannerRows.find(
     (row) => row.step === "makeup-vto-preview",

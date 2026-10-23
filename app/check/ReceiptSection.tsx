@@ -67,6 +67,8 @@ export default function ReceiptSection({
         </>
       ) : null}
 
+      {view.clusterText !== null ? <p>{view.clusterText}</p> : null}
+
       {view.ownedText !== null ? <p>{view.ownedText}</p> : null}
 
       <h3>Planner log</h3>

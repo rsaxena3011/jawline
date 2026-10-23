@@ -160,15 +160,17 @@ function main() {
     "every share is its count of 6 with the rounded percentage beside it, in that order",
   );
 
-  // ---- Pinned baseline facts, established by slices 1 to 3 ----
+  // ---- Pinned baseline, re-derived at slice 6 (cluster rule) ----
+  // Every study tone has an exact-match shade in the fixture
+  // catalog and every cluster member sits inside the match
+  // range, so under the cluster rule (boss ruling 2026-10-23)
+  // all six tones return BUY and the gap reads 0 of 6.
   check(
-    view.perTone.find((row) => row.toneId === "tone1")?.verdict === "BUY" &&
-      view.perTone.find((row) => row.toneId === "tone2")?.verdict ===
-        "SHADE-RISK" &&
-      view.perTone.find((row) => row.toneId === "tone6")?.verdict ===
-        "CAN'T TELL" &&
-      buyCount === 1,
-    "baseline holds: tone1 BUY, tone2 SHADE-RISK, tone6 CAN'T TELL, one safe BUY in six",
+    view.perTone.every((row) => row.verdict === "BUY") &&
+      buyCount === 6 &&
+      view.coverageGapLine ===
+        "0 of 6 study tones had no safe BUY in this catalog",
+    "baseline holds under the cluster rule: all six tones BUY against the fixture catalog, gap 0 of 6",
   );
 
   // ---- Honest labelling is on the screen, not just in this file ----

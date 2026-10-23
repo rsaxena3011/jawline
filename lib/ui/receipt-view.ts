@@ -52,6 +52,12 @@ export interface ReceiptView {
   measuredToneText: string;
   thresholdRows: ReceiptThresholdRow[];
   rankingRows: ReceiptRankingRow[];
+  /**
+   * The winner's cluster as the engine reported it: member labels,
+   * hexes and distances copied from the receipt, with the engine's
+   * own in-range mark. Null when the engine formed no cluster.
+   */
+  clusterText: string | null;
   ownedText: string | null;
   plannerRows: ReceiptPlannerRow[];
   unitsSpentText: string;
@@ -86,6 +92,13 @@ export function buildReceiptView(receipt: Receipt): ReceiptView {
           : String(receipt.noiseFloor),
     },
     { label: "Pale band reading", value: receipt.paleBand ? "Yes" : "No" },
+    {
+      label: "Shades within noise of the top pick",
+      value:
+        receipt.ranking.length === 0
+          ? NOT_APPLICABLE
+          : String(receipt.cluster.length),
+    },
   ];
 
   const rankingRows: ReceiptRankingRow[] = receipt.ranking.map((row, i) => ({
@@ -94,6 +107,16 @@ export function buildReceiptView(receipt: Receipt): ReceiptView {
     hex: row.shade.hex,
     distanceText: formatDistance(row.distance),
   }));
+
+  const clusterText =
+    receipt.cluster.length === 0
+      ? null
+      : `Top-pick cluster (${receipt.cluster.length} shade${receipt.cluster.length === 1 ? "" : "s"} within measurement noise of the top pick, top pick first): ${receipt.cluster
+          .map(
+            (row) =>
+              `${row.shade.brand} ${row.shade.shadeName} (${row.shade.hex}) at ${formatDistance(row.distance)}${row.inMatchRange ? "" : " (outside the match range)"}`,
+          )
+          .join("; ")}.`;
 
   const ownedText =
     receipt.ownedMatch !== null
@@ -122,6 +145,7 @@ export function buildReceiptView(receipt: Receipt): ReceiptView {
     ...rankingRows.map(
       (row) => `${row.position}. ${row.shadeLabel} ${row.hex} ${row.distanceText}`,
     ),
+    ...(clusterText !== null ? [clusterText] : []),
     ...(ownedText !== null ? [ownedText] : []),
     ...plannerRows.map(
       (row) => `${row.step} ${row.outcome} ${row.unitsText} ${row.why}`,
@@ -137,6 +161,7 @@ export function buildReceiptView(receipt: Receipt): ReceiptView {
     measuredToneText,
     thresholdRows,
     rankingRows,
+    clusterText,
     ownedText,
     plannerRows,
     unitsSpentText,
