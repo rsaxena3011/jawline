@@ -49,7 +49,10 @@ export default function HomePage() {
           passcode on the same page: one real Skin Tone call through
           the same engine, under server-side spend caps, with a
           receipt labelled LIVE. Public visitors get the fixture
-          replay only.
+          replay only. A brand coverage screen now counts the same
+          engine&apos;s verdicts across all six study tones, so a
+          catalog&apos;s gaps show as plain counts, one bucket per
+          verdict, never merged.
         </p>
       </section>
     </div>
